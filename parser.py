@@ -3,6 +3,10 @@ import re
 import fitz  # PyMuPDF
 from ics import Calendar, Event
 from datetime import datetime, time, timedelta
+from zoneinfo import ZoneInfo
+
+# Define Central Time Zone
+CENTRAL_TZ = ZoneInfo("America/Chicago")
 
 def parse_schedule():
     pdf_files = [f for f in os.listdir('.') if f.endswith('.pdf') and f.upper() != 'SCHEDULE.PDF']
@@ -31,7 +35,7 @@ def parse_schedule():
     for pdf_path in pdf_files:
         print(f"Processing schedule: {pdf_path}")
         
-        # Extract month and year from filename (e.g., "NOV 2026.pdf" or "DEC 2026.pdf")
+        # Extract month and year from filename
         match = re.search(r'(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\D*(\d{4})', pdf_path.upper())
         if not match:
             print(f"Could not parse month/year from filename {pdf_path}, skipping.")
@@ -45,7 +49,7 @@ def parse_schedule():
         page = doc[0]
         words = page.get_text("words")
         
-        # Dynamically locate ROBB's row wherever she is positioned
+        # Dynamically locate ROBB's row wherever positioned
         robb_box = None
         for w in words:
             if "ROBB" in w[4].upper():
@@ -109,13 +113,15 @@ def parse_schedule():
                     e = Event()
                     e.name = f"Work - Shift {token}"
                     
+                    # Attach Central Time Zone explicitly
                     if end_t < start_t:
-                        end_datetime = datetime.combine(shift_date + timedelta(days=1), end_t)
+                        end_datetime = datetime.combine(shift_date + timedelta(days=1), end_t, tzinfo=CENTRAL_TZ)
                     else:
-                        end_datetime = datetime.combine(shift_date, end_t)
+                        end_datetime = datetime.combine(shift_date, end_t, tzinfo=CENTRAL_TZ)
                         
-                    e.begin = datetime.combine(shift_date, start_t)
+                    e.begin = datetime.combine(shift_date, start_t, tzinfo=CENTRAL_TZ)
                     e.end = end_datetime
+                    
                     cal.events.add(e)
                     print(f"Added shift {token} for {shift_date}")
 
