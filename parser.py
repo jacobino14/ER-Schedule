@@ -56,36 +56,51 @@ def parse_schedule():
     robb_words = [w for w in words if row_top <= ((w[1] + w[3]) / 2) <= row_bottom]
     robb_words = [w for w in robb_words if "ROBB" not in w[4].upper()]
 
-    # 4. Map tokens, ignoring any shift tokens containing a slash (PTO / slashed-off shifts)
+    # Check vector drawings on the page to see if there is a diagonal slash line intersecting a shift's bounding box
+    drawings = page.get_drawings()
+
     for w in robb_words:
         token = w[4].strip().upper()
         x_pos = (w[0] + w[2]) / 2
         
-        if date_columns:
+        if date_columns and token in shift_times:
             closest_day = min(date_columns.keys(), key=lambda d: abs(date_columns[d] - x_pos))
             
             if abs(date_columns[closest_day] - x_pos) < 30:
-                # If there's a slash in the token (e.g., A/ or /A), treat it as a PTO / off day
-                if '/' in token:
-                    print(f"Skipping slashed/PTO shift token '{token}' for Day {closest_day}")
+                # Check if a vector line (slash) passes through this word's bounding box coordinate area
+                w_rect = fitz.Rect(w[0]-2, w[1]-2, w[2]+2, w[3]+2)
+                has_slash = False
+                for d in drawings:
+                    # Look at vector paths that look like diagonal slash marks inside the cell
+                    if "items" in d:
+                        for item in d["items"]:
+                            if item[0] == "l": # line segment
+                                p1, p2 = item[1], item[2]
+                                if w_rect.intersects(fitz.Rect(min(p1.x, p2.x), min(p1.y, p2.y), max(p1.x, p2.x), max(p1.y, p2.y))):
+                                    has_slash = True
+                                    break
+                    if has_slash:
+                        break
+
+                if has_slash:
+                    print(f"Skipping slashed PTO shift '{token}' for Day {closest_day}")
                     continue
+
+                start_t, end_t = shift_times[token]
+                shift_date = datetime(year, month, closest_day).date()
                 
-                if token in shift_times:
-                    start_t, end_t = shift_times[token]
-                    shift_date = datetime(year, month, closest_day).date()
+                e = Event()
+                e.name = f"Work - Shift {token}"
+                
+                if end_t < start_t:
+                    end_datetime = datetime.combine(shift_date + timedelta(days=1), end_t)
+                else:
+                    end_datetime = datetime.combine(shift_date, end_t)
                     
-                    e = Event()
-                    e.name = f"Work - Shift {token}"
-                    
-                    if end_t < start_t:
-                        end_datetime = datetime.combine(shift_date + timedelta(days=1), end_t)
-                    else:
-                        end_datetime = datetime.combine(shift_date, end_t)
-                        
-                    e.begin = datetime.combine(shift_date, start_t)
-                    e.end = end_datetime
-                    cal.events.add(e)
-                    print(f"Matched shift {token} at X={x_pos:.1f} to Day {closest_day} ({shift_date})")
+                e.begin = datetime.combine(shift_date, start_t)
+                e.end = end_datetime
+                cal.events.add(e)
+                print(f"Matched shift {token} at X={x_pos:.1f} to Day {closest_day} ({shift_date})")
 
     ics_path = "schedule.ics"
     with open(ics_path, 'w') as f:
