@@ -2,7 +2,7 @@ import os
 import re
 import fitz  # PyMuPDF
 from ics import Calendar, Event
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 # Define Central Time Zone
@@ -35,13 +35,18 @@ def parse_schedule():
     for pdf_path in pdf_files:
         print(f"Processing schedule: {pdf_path}")
         
-        # Extract month and year from filename
-        match = re.search(r'(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\D*(\d{4})', pdf_path.upper())
+        # Flexible regex to extract month and year regardless of order (e.g., "SEP 2026" or "2026 SEP")
+        match = re.search(r'(?:(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\D*(\d{4}))|(?:(\d{4})\D*(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC))', pdf_path.upper())
         if not match:
             print(f"Could not parse month/year from filename {pdf_path}, skipping.")
             continue
             
-        month_str, year_str = match.groups()
+        groups = match.groups()
+        if groups[0] and groups[1]:
+            month_str, year_str = groups[0], groups[1]
+        else:
+            year_str, month_str = groups[2], groups[3]
+
         month = month_map[month_str]
         year = int(year_str)
 
