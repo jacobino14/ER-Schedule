@@ -2,7 +2,7 @@ import os
 import re
 import fitz  # PyMuPDF
 from ics import Calendar, Event
-from datetime import datetime, time, timedelta
+from datetime import datetime, time
 from zoneinfo import ZoneInfo
 
 # Define Central Time Zone
@@ -117,10 +117,10 @@ def parse_schedule():
                     e = Event()
                     e.name = f"Elise Shift {token} - {start_str} - {end_str}"
                     
-                    # Set event to occur precisely at the start time (1-hour block on the shift date)
+                    # Set both begin and end time to the exact start time of the shift
                     start_dt = datetime.combine(shift_date, start_t, tzinfo=CENTRAL_TZ)
                     e.begin = start_dt
-                    e.end = start_dt + timedelta(hours=1)
+                    e.end = start_dt
                     
                     cal.events.add(e)
                     print(f"Added shift {token} for {shift_date}")
