@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 CENTRAL_TZ = ZoneInfo("America/Chicago")
 
 def parse_schedule():
-    pdf_files = [f for f in os.listdir('.') if f.endswith('.pdf') and f.upper() != 'SCHEDULE.PDF']
+    pdf_files = [f for f in os.listdir('.') if f.endswith('.pdf'] and f.upper() != 'SCHEDULE.PDF']
     if not pdf_files:
         print("Error: No schedule PDFs found.")
         return
@@ -54,22 +54,23 @@ def parse_schedule():
         page = doc[0]
         words = page.get_text("words")
         
-        # Dynamically locate ROBB's row wherever positioned
-        robb_box = None
+        # Dynamically locate ROBB or ANTONACCI's row wherever positioned
+        row_box = None
         for w in words:
-            if "ROBB" in w[4].upper():
-                robb_box = (w[0], w[1], w[2], w[3])
+            text_upper = w[4].upper()
+            if "ROBB" in text_upper or "ANTONACCI" in text_upper:
+                row_box = (w[0], w[1], w[2], w[3])
                 break
 
-        if robb_box is None:
-            print(f"Could not locate ROBB in {pdf_path}.")
+        if row_box is None:
+            print(f"Could not locate ROBB or ANTONACCI in {pdf_path}.")
             continue
 
-        row_top = robb_box[1] - 4
-        row_bottom = robb_box[3] + 4
+        row_top = row_box[1] - 4
+        row_bottom = row_box[3] + 4
 
         # Dynamically map date columns from header row
-        header_words = [w for w in words if w[3] < robb_box[1]]
+        header_words = [w for w in words if w[3] < row_box[1]]
         date_columns = {}
         for w in header_words:
             text = w[4].strip()
@@ -79,11 +80,11 @@ def parse_schedule():
                     x_center = (w[0] + w[2]) / 2
                     date_columns[day_num] = x_center
 
-        robb_words = [w for w in words if row_top <= ((w[1] + w[3]) / 2) <= row_bottom]
-        robb_words = [w for w in robb_words if "ROBB" not in w[4].upper()]
+        row_words = [w for w in words if row_top <= ((w[1] + w[3]) / 2) <= row_bottom]
+        row_words = [w for w in row_words if "ROBB" not in w[4].upper() and "ANTONACCI" not in w[4].upper()]
         drawings = page.get_drawings()
 
-        for w in robb_words:
+        for w in row_words:
             token = w[4].strip().upper()
             x_pos = (w[0] + w[2]) / 2
             
