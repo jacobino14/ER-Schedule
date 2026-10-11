@@ -1,7 +1,7 @@
 import os
 import fitz  # PyMuPDF
 from ics import Calendar, Event
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 
 def parse_schedule():
     pdf_files = [f for f in os.listdir('.') if f.endswith('.pdf')]
@@ -43,18 +43,34 @@ def parse_schedule():
     cal = Calendar()
     year, month = 2026, 11
 
-    # Filter text tokens in ROBB's row band
+    # Filter text tokens in ROBB's row band and sort left-to-right
     robb_words = [w for w in words if abs(((w[1] + w[3]) / 2) - robb_y) < 12]
-    robb_words.sort(key=lambda x: x[0])  # Sort left to right across days
+    robb_words.sort(key=lambda x: x[0])
 
-    # Process each detected word token in the row
+    day_counter = 1
     for w in robb_words:
         text = w[4].strip().upper()
-        if text in shift_times:
-            # Note: We will map token position sequentially to calendar days
+        
+        # Check for shift letters or slash-off notation (e.g., A/ / or standard shift)
+        if text in shift_times and day_counter <= 30:
             start_t, end_t = shift_times[text]
-            # Placeholder for day mapping corresponding to column index
-            print(f"Found shift {text} at X coordinate {w[0]}")
+            shift_date = datetime(year, month, day_counter).date()
+            
+            e = Event()
+            e.name = f"Work - Shift {text}"
+            
+            # Handle overnight shifts crossing midnight
+            if end_t < start_t:
+                end_datetime = datetime.combine(shift_date + timedelta(days=1), end_t)
+            else:
+                end_datetime = datetime.combine(shift_date, end_t)
+                
+            e.begin = datetime.combine(shift_date, start_t)
+            e.end = end_datetime
+            cal.events.add(e)
+            
+            print(f"Added shift {text} for {shift_date}")
+            day_counter += 1
 
     # Save output .ics file
     ics_path = "schedule.ics"
