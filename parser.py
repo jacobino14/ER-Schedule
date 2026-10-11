@@ -113,16 +113,14 @@ def parse_schedule():
                     e = Event()
                     e.name = f"Work - Shift {token}"
                     
-                    # Attach Central Time Zone and handle overnight spans cleanly
+                    # Attach Central Time Zone explicitly
                     if end_t < start_t:
-                        e.begin = datetime.combine(shift_date, start_t, tzinfo=CENTRAL_TZ)
-                        e.end = datetime.combine(shift_date + timedelta(days=1), end_t, tzinfo=CENTRAL_TZ)
+                        end_datetime = datetime.combine(shift_date + timedelta(days=1), end_t, tzinfo=CENTRAL_TZ)
                     else:
-                        e.begin = datetime.combine(shift_date, start_t, tzinfo=CENTRAL_TZ)
-                        e.end = datetime.combine(shift_date, end_t, tzinfo=CENTRAL_TZ)
-                    
-                    # Assign a stable UID to prevent calendar splitting/duplicates
-                    e.uid = f"er-shift-{shift_date.isoformat()}-{token}@er-schedule"
+                        end_datetime = datetime.combine(shift_date, end_t, tzinfo=CENTRAL_TZ)
+                        
+                    e.begin = datetime.combine(shift_date, start_t, tzinfo=CENTRAL_TZ)
+                    e.end = end_datetime
                     
                     cal.events.add(e)
                     print(f"Added shift {token} for {shift_date}")
