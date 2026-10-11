@@ -110,21 +110,17 @@ def parse_schedule():
                     except ValueError:
                         continue 
                         
-                    # Format start and end times nicely for the event title (e.g., 9:30 PM - 8:00 AM)
+                    # Format start and end times for the title
                     start_str = start_t.strftime("%I:%M %p").lstrip("0")
                     end_str = end_t.strftime("%I:%M %p").lstrip("0")
 
                     e = Event()
                     e.name = f"Elise Shift {token} - {start_str} - {end_str}"
                     
-                    # Attach Central Time Zone explicitly
-                    if end_t < start_t:
-                        end_datetime = datetime.combine(shift_date + timedelta(days=1), end_t, tzinfo=CENTRAL_TZ)
-                    else:
-                        end_datetime = datetime.combine(shift_date, end_t, tzinfo=CENTRAL_TZ)
-                        
-                    e.begin = datetime.combine(shift_date, start_t, tzinfo=CENTRAL_TZ)
-                    e.end = end_datetime
+                    # Set event to occur precisely at the start time (1-hour block on the shift date)
+                    start_dt = datetime.combine(shift_date, start_t, tzinfo=CENTRAL_TZ)
+                    e.begin = start_dt
+                    e.end = start_dt + timedelta(hours=1)
                     
                     cal.events.add(e)
                     print(f"Added shift {token} for {shift_date}")
