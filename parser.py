@@ -16,18 +16,21 @@ def parse_schedule():
     page = doc[0]
     words = page.get_text("words")
     
-    # Locate ROBB's row coordinate
-    robb_y = None
+    # Locate ROBB's exact bounding box (x0, y0, x1, y1)
+    robb_box = None
     for w in words:
         if "ROBB" in w[4].upper():
-            robb_y = (w[1] + w[3]) / 2
+            robb_box = (w[0], w[1], w[2], w[3])
             break
 
-    if robb_y is None:
+    if robb_box is None:
         print("Error: Could not locate ROBB in the grid.")
         return
 
-    print(f"Successfully located ROBB at Y: {robb_y}")
+    # Define strict vertical boundaries for ROBB's specific row
+    row_top = robb_box[1] - 3
+    row_bottom = robb_box[3] + 3
+    print(f"Strict row band for ROBB: Y between {row_top} and {row_bottom}")
 
     # Shift time definitions
     shift_times = {
@@ -43,26 +46,24 @@ def parse_schedule():
     cal = Calendar()
     year, month = 2026, 11
 
-    # Filter text tokens strictly in ROBB's vertical row band, excluding the name "ROBB"
-    robb_words = [w for w in words if abs(((w[1] + w[3]) / 2) - robb_y) < 10]
+    # Filter words strictly inside ROBB's exact row vertical band, excluding the name "ROBB" itself
+    robb_words = [w for w in words if row_top <= ((w[1] + w[3]) / 2) <= row_bottom]
     robb_words = [w for w in robb_words if "ROBB" not in w[4].upper()]
     
-    # Sort left-to-right across the page
+    # Sort strictly left-to-right across the page
     robb_words.sort(key=lambda x: x[0])
 
-    print(f"Found {len(robb_words)} tokens in ROBB's row.")
+    print(f"Found {len(robb_words)} shift tokens strictly in ROBB's row.")
 
-    # We will map detected shift tokens sequentially to days 1 through 30 based on sorted X positions
+    # Map detected tokens sequentially to days 1 through 30
     for i, w in enumerate(robb_words):
         text = w[4].strip().upper()
-        x_coord = w[0]
+        day_num = i + 1
         
+        if day_num > 30:
+            break
+            
         if text in shift_times:
-            # Estimate day number by sequence order or let's inspect token X positions
-            day_num = i + 1
-            if day_num > 30:
-                break
-                
             start_t, end_t = shift_times[text]
             shift_date = datetime(year, month, day_num).date()
             
@@ -78,7 +79,9 @@ def parse_schedule():
             e.end = end_datetime
             cal.events.add(e)
             
-            print(f"Token '{text}' at X={x_coord:.1f} -> Added shift {text} for {shift_date}")
+            print(f"Day {day_num} (X={w[0]:.1f}): Added shift {text} for {shift_date}")
+        else:
+            print(f"Day {day_num} (X={w[0]:.1f}): Non-shift token ({text}) / Off")
 
     # Save output .ics file
     ics_path = "schedule.ics"
