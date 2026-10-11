@@ -110,8 +110,12 @@ def parse_schedule():
                     except ValueError:
                         continue 
                         
+                    # Format start and end times nicely for the event title (e.g., 9:30 PM - 8:00 AM)
+                    start_str = start_t.strftime("%I:%M %p").lstrip("0")
+                    end_str = end_t.strftime("%I:%M %p").lstrip("0")
+
                     e = Event()
-                    e.name = f"Work - Shift {token}"
+                    e.name = f"Elise Shift {token} - {start_str} - {end_str}"
                     
                     # Attach Central Time Zone explicitly
                     if end_t < start_t:
