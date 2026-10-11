@@ -43,18 +43,25 @@ def parse_schedule():
     cal = Calendar()
     year, month = 2026, 11
 
-    # Filter text tokens in ROBB's row band and sort left-to-right
-    robb_words = [w for w in words if abs(((w[1] + w[3]) / 2) - robb_y) < 12]
+    # Filter text tokens strictly in ROBB's vertical row band
+    robb_words = [w for w in words if abs(((w[1] + w[3]) / 2) - robb_y) < 10]
+    
+    # Filter out the name token itself and sort left-to-right by X coordinate
+    robb_words = [w for w in robb_words if "ROBB" not in w[4].upper()]
     robb_words.sort(key=lambda x: x[0])
 
-    day_counter = 1
-    for w in robb_words:
+    # November 2026 has 30 days. Let's map detected tokens sequentially to days 1 through 30.
+    # If the schedule uses explicit column X-ranges, we map them here:
+    for i, w in enumerate(robb_words):
         text = w[4].strip().upper()
+        day_num = i + 1
         
-        # Check for shift letters or slash-off notation (e.g., A/ / or standard shift)
-        if text in shift_times and day_counter <= 30:
+        if day_num > 30:
+            break
+            
+        if text in shift_times:
             start_t, end_t = shift_times[text]
-            shift_date = datetime(year, month, day_counter).date()
+            shift_date = datetime(year, month, day_num).date()
             
             e = Event()
             e.name = f"Work - Shift {text}"
@@ -70,7 +77,8 @@ def parse_schedule():
             cal.events.add(e)
             
             print(f"Added shift {text} for {shift_date}")
-            day_counter += 1
+        else:
+            print(f"Day {day_num}: Off or non-shift token ({text})")
 
     # Save output .ics file
     ics_path = "schedule.ics"
