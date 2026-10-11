@@ -9,7 +9,8 @@ from zoneinfo import ZoneInfo
 CENTRAL_TZ = ZoneInfo("America/Chicago")
 
 def parse_schedule():
-    pdf_files = [f for f in os.listdir('.') if f.endswith('.pdf'] and f.upper() != 'SCHEDULE.PDF']
+    # Fixed the file extension filter syntax
+    pdf_files = [f for f in os.listdir('.') if f.endswith('.pdf') and f.upper() != 'SCHEDULE.PDF']
     if not pdf_files:
         print("Error: No schedule PDFs found.")
         return
