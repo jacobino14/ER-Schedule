@@ -9,14 +9,11 @@ def parse_schedule():
         print("Error: No schedule PDF found.")
         return
 
-    pdf_path = pdf_files[0]
-    print(f"Processing schedule: {pdf_path}")
-
-    doc = fitz.open(pdf_path)
+    doc = fitz.open(pdf_files[0])
     page = doc[0]
     words = page.get_text("words")
     
-    # Locate ROBB's exact bounding box (x0, y0, x1, y1)
+    # 1. Dynamically locate ROBB's row wherever she is on the page
     robb_box = None
     for w in words:
         if "ROBB" in w[4].upper():
@@ -27,10 +24,22 @@ def parse_schedule():
         print("Error: Could not locate ROBB in the grid.")
         return
 
-    # Define strict vertical boundaries for ROBB's specific row
-    row_top = robb_box[1] - 3
-    row_bottom = robb_box[3] + 3
-    print(f"Strict row band for ROBB: Y between {row_top} and {row_bottom}")
+    row_top = robb_box[1] - 4
+    row_bottom = robb_box[3] + 4
+    print(f"Dynamically located ROBB at Y: {robb_box[1]:.1f}")
+
+    # 2. Dynamically scan header row above ROBB to map exact date columns (1-31)
+    header_words = [w for w in words if w[3] < robb_box[1]]
+    date_columns = {}
+    for w in header_words:
+        text = w[4].strip()
+        if text.isdigit():
+            day_num = int(text)
+            if 1 <= day_num <= 31:
+                x_center = (w[0] + w[2]) / 2
+                date_columns[day_num] = x_center
+
+    print(f"Dynamically mapped {len(date_columns)} calendar date columns from headers.")
 
     # Shift time definitions
     shift_times = {
@@ -46,44 +55,38 @@ def parse_schedule():
     cal = Calendar()
     year, month = 2026, 11
 
-    # Filter words strictly inside ROBB's exact row vertical band, excluding the name "ROBB" itself
+    # 3. Extract text tokens strictly inside ROBB's row band
     robb_words = [w for w in words if row_top <= ((w[1] + w[3]) / 2) <= row_bottom]
     robb_words = [w for w in robb_words if "ROBB" not in w[4].upper()]
-    
-    # Sort strictly left-to-right across the page
-    robb_words.sort(key=lambda x: x[0])
 
-    print(f"Found {len(robb_words)} shift tokens strictly in ROBB's row.")
-
-    # Map detected tokens sequentially to days 1 through 30
-    for i, w in enumerate(robb_words):
-        text = w[4].strip().upper()
-        day_num = i + 1
-        
-        if day_num > 30:
-            break
+    # 4. Map each shift token to its matching date column header
+    for w in robb_words:
+        token = w[4].strip().upper()
+        if token in shift_times:
+            x_pos = (w[0] + w[2]) / 2
             
-        if text in shift_times:
-            start_t, end_t = shift_times[text]
-            shift_date = datetime(year, month, day_num).date()
-            
-            e = Event()
-            e.name = f"Work - Shift {text}"
-            
-            if end_t < start_t:
-                end_datetime = datetime.combine(shift_date + timedelta(days=1), end_t)
-            else:
-                end_datetime = datetime.combine(shift_date, end_t)
+            if date_columns:
+                # Find the closest date header column matching this token's X position
+                closest_day = min(date_columns.keys(), key=lambda d: abs(date_columns[d] - x_pos))
                 
-            e.begin = datetime.combine(shift_date, start_t)
-            e.end = end_datetime
-            cal.events.add(e)
-            
-            print(f"Day {day_num} (X={w[0]:.1f}): Added shift {text} for {shift_date}")
-        else:
-            print(f"Day {day_num} (X={w[0]:.1f}): Non-shift token ({text}) / Off")
+                # Verify it's within a valid column boundary
+                if abs(date_columns[closest_day] - x_pos) < 30:
+                    start_t, end_t = shift_times[token]
+                    shift_date = datetime(year, month, closest_day).date()
+                    
+                    e = Event()
+                    e.name = f"Work - Shift {token}"
+                    
+                    if end_t < start_t:
+                        end_datetime = datetime.combine(shift_date + timedelta(days=1), end_t)
+                    else:
+                        end_datetime = datetime.combine(shift_date, end_t)
+                        
+                    e.begin = datetime.combine(shift_date, start_t)
+                    e.end = end_datetime
+                    cal.events.add(e)
+                    print(f"Matched shift {token} at X={x_pos:.1f} to Day {closest_day} ({shift_date})")
 
-    # Save output .ics file
     ics_path = "schedule.ics"
     with open(ics_path, 'w') as f:
         f.writelines(cal)
