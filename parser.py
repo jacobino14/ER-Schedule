@@ -15,7 +15,6 @@ def parse_schedule():
     doc = fitz.open(pdf_path)
     page = doc[0]
     words = page.get_text("words")
-    page_width = page.rect.width
     
     # Locate ROBB's row coordinate
     robb_y = None
@@ -43,40 +42,33 @@ def parse_schedule():
 
     cal = Calendar()
     year, month = 2026, 11
-    days_in_month = 30
 
-    # Estimate column width based on page width divided across the 30 calendar days
-    # (Leaving a margin on the left for the name column)
-    left_margin = 80  
-    usable_width = page_width - left_margin
-    col_width = usable_width / days_in_month
-
-    # Filter text tokens strictly in ROBB's vertical row band
+    # Filter text tokens strictly in ROBB's vertical row band, excluding the name "ROBB"
     robb_words = [w for w in words if abs(((w[1] + w[3]) / 2) - robb_y) < 10]
+    robb_words = [w for w in robb_words if "ROBB" not in w[4].upper()]
+    
+    # Sort left-to-right across the page
+    robb_words.sort(key=lambda x: x[0])
 
-    # Map each day of November (1 to 30) to its specific X coordinate column bucket
-    for day_num in range(1, days_in_month + 1):
-        col_start = left_margin + ((day_num - 1) * col_width)
-        col_end = left_margin + (day_num * col_width)
+    print(f"Found {len(robb_words)} tokens in ROBB's row.")
+
+    # We will map detected shift tokens sequentially to days 1 through 30 based on sorted X positions
+    for i, w in enumerate(robb_words):
+        text = w[4].strip().upper()
+        x_coord = w[0]
         
-        # Find any text token falling inside this specific day's column
-        day_words = [w for w in robb_words if col_start <= w[0] < col_end]
-        
-        shift_found = None
-        for w in day_words:
-            token = w[4].strip().upper()
-            if token in shift_times:
-                shift_found = token
+        if text in shift_times:
+            # Estimate day number by sequence order or let's inspect token X positions
+            day_num = i + 1
+            if day_num > 30:
                 break
-
-        if shift_found:
-            start_t, end_t = shift_times[shift_found]
+                
+            start_t, end_t = shift_times[text]
             shift_date = datetime(year, month, day_num).date()
             
             e = Event()
-            e.name = f"Work - Shift {shift_found}"
+            e.name = f"Work - Shift {text}"
             
-            # Handle overnight shifts crossing midnight
             if end_t < start_t:
                 end_datetime = datetime.combine(shift_date + timedelta(days=1), end_t)
             else:
@@ -86,9 +78,7 @@ def parse_schedule():
             e.end = end_datetime
             cal.events.add(e)
             
-            print(f"Added shift {shift_found} for {shift_date}")
-        else:
-            print(f"Day {day_num} ({datetime(year, month, day_num).strftime('%b %d')}): Off / No shift")
+            print(f"Token '{text}' at X={x_coord:.1f} -> Added shift {text} for {shift_date}")
 
     # Save output .ics file
     ics_path = "schedule.ics"
