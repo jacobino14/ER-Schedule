@@ -5,6 +5,7 @@ on:
     paths:
       - '*.pdf'
       - 'parser.py'
+  workflow_dispatch:
 
 jobs:
   run-parser:
