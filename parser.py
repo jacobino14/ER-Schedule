@@ -1,6 +1,6 @@
 import os
 import re
-import fitz  # PyMuPDF
+import fitz   # PyMuPDF
 from ics import Calendar, Event
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
@@ -9,10 +9,15 @@ from zoneinfo import ZoneInfo
 CENTRAL_TZ = ZoneInfo("America/Chicago")
 
 def parse_schedule():
-    # Fixed the file extension filter syntax
-    pdf_files = [f for f in os.listdir('.') if f.endswith('.pdf') and f.upper() != 'SCHEDULE.PDF']
+    # Look inside the 'Schedules' folder instead of root '.'
+    schedules_dir = 'Schedules'
+    if not os.path.exists(schedules_dir):
+        print(f"Error: Directory '{schedules_dir}' not found.")
+        return
+
+    pdf_files = [f for f in os.listdir(schedules_dir) if f.endswith('.pdf') and f.upper() != 'SCHEDULE.PDF']
     if not pdf_files:
-        print("Error: No schedule PDFs found.")
+        print("Error: No schedule PDFs found in Schedules folder.")
         return
 
     cal = Calendar()
@@ -33,13 +38,15 @@ def parse_schedule():
         'JUL': 7, 'AUG': 8, 'SEP': 9, 'OCT': 10, 'NOV': 11, 'DEC': 12
     }
 
-    for pdf_path in pdf_files:
+    for filename in pdf_files:
+        # Construct the full path to the PDF inside the Schedules folder
+        pdf_path = os.path.join(schedules_dir, filename)
         print(f"Processing schedule: {pdf_path}")
         
         # Flexible regex to extract month and year regardless of order (e.g., "SEP 2026" or "2026 SEP")
-        match = re.search(r'(?:(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\D*(\d{4}))|(?:(\d{4})\D*(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC))', pdf_path.upper())
+        match = re.search(r'(?:(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\D*(\d{4}))|(?:(\d{4})\D*(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC))', filename.upper())
         if not match:
-            print(f"Could not parse month/year from filename {pdf_path}, skipping.")
+            print(f"Could not parse month/year from filename {filename}, skipping.")
             continue
             
         groups = match.groups()
@@ -64,7 +71,7 @@ def parse_schedule():
                 break
 
         if row_box is None:
-            print(f"Could not locate ROBB or ANTONACCI in {pdf_path}.")
+            print(f"Could not locate ROBB or ANTONACCI in {filename}.")
             continue
 
         row_top = row_box[1] - 4
