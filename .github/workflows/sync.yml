@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - '*.pdf'
+      - 'parser.py'
 
 jobs:
   run-parser:
