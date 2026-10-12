@@ -3,7 +3,7 @@ name: Auto-update schedule.ics
 on:
   push:
     paths:
-      - '*.pdf'
+      - 'Schedules/*.pdf'
       - 'parser.py'
 
 jobs:
