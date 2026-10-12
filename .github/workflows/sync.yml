@@ -1,42 +1,37 @@
-name: Parse Schedule to ICS
+name: Auto-update schedule.ics
 
 on:
   push:
     paths:
-      - '*.pdf'
+      - 'Schedules/*.pdf'
+      - 'manual_shifts.json'
       - 'parser.py'
-  workflow_dispatch:
-
-permissions:
-  contents: write
 
 jobs:
-  run-parser:
+  build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      - name: Install system dependencies (Poppler)
-        run: sudo apt-get update && sudo apt-get install -y poppler-utils
-
-      - name: Install Python dependencies
-        run: pip install pymupdf ics
+      - name: Install dependencies
+        run: |
+          pip install PyMuPDF ics
 
       - name: Run parser script
-        run: python parser.py
-
-      - name: Commit and push generated schedule
         run: |
-          git config --global user.name "GitHub Actions Bot"
+          python parser.py
+
+      - name: Commit and push if changes
+        run: |
+          git config --global user.name "actions-user"
           git config --global user.email "actions@github.com"
           git add schedule.ics
-          git diff --staged --quiet || git commit -m "Auto-update schedule.ics [skip ci]"
-          git push
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update schedule.ics [skip ci]" && git push)
